@@ -31,7 +31,8 @@ def create_initial_halfspaces(X, d=2, k=2):
     for j in range(k):
         for i in range(d):
             h1 = np.zeros((d+1)*k)
-            h1[i + j*(d+1)] = -1  # -z_ij <= -min
+            h1[i + j*(d+1)] = -1  # -z_ij <= -min 
+            # Want stuff on form Ax + b <= 0
             halfspaces.append((h1, -mins[i]))
             h2 = np.zeros((d+1)*k)
             h2[i + j*(d+1)] = 1   # z_ij <= max
@@ -76,12 +77,8 @@ def enumerate_vertices(halfspaces):
     b = np.array([hs[1] for hs in halfspaces])
 
     center = find_interior_point(halfspaces)
-    try:
-        hs = HalfspaceIntersection(np.hstack([A, b[:, None]]), center)
-        return hs.intersections
-    except Exception as e:
-        print(e)
-        return []
+    hs = HalfspaceIntersection(np.hstack([A, -b[:, None]]), center)
+    return hs.intersections
 
 def assign_clusters(X, Z, d=2, k=2):
     """Assign each data point to nearest centroid."""
@@ -102,7 +99,7 @@ def add_cutting_plane(X, Z_star, assignment, halfspaces, d=2, k=2):
 
     diff = (Z_star - Z_proj).flatten()
     rhs = np.dot(diff, Z_proj.flatten())
-    halfspaces.append((diff, rhs))
+    halfspaces.append((diff, -rhs))
     return halfspaces
 
 def cutting_plane_algorithm(X, epsilon=1e-3, k=2):
@@ -137,15 +134,17 @@ def cutting_plane_algorithm(X, epsilon=1e-3, k=2):
 
         assignment = assign_clusters(X, best_vertex, d, k)
         centroids = best_vertex[:d, :] / best_vertex[d, :]
+        
+        #### Sus Code starts here...
         assignment_cost = np.sum([
             np.linalg.norm(X[i] - centroids[assignment[i]])**2 for i in range(n)
         ])
         current_upper_bound = assignment_cost
-
+        ############################
         lower_bound = max(lower_bound, current_lower_bound)
         upper_bound = min(upper_bound, current_upper_bound)
 
-        print(f"Iteration {iteration}: lower bound = {lower_bound:.4f}, upper bound = {upper_bound:.4f}")
+        print(f"Iteration {iteration}: lower bound = {lower_bound}, upper bound = {upper_bound}")
 
         halfspaces = add_cutting_plane(X, best_vertex, assignment, halfspaces, d, k)
 
